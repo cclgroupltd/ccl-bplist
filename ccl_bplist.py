@@ -36,6 +36,16 @@ __contact__ = "Alex Caithness"
 class BplistError(Exception):
     pass
 
+class BplistUID:
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        return "UID: {0}".format(self.value)
+
+    def __str__(self):
+        return self.__repr__()
+
 def __decode_multibyte_int(b, signed=True):
     if len(b) == 1:
         fmt = ">b"
@@ -135,8 +145,8 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
         return f.read(utf16_length).decode("utf_16_be")
     elif type_byte & 0xF0 == 0x80: # UID    1000 nnnn
         uid_length = (type_byte & 0x0F) + 1
-        uid_bytes = r.read(uid_length)
-        return __decode_multibyte_int(uid_bytes)
+        uid_bytes = f.read(uid_length)
+        return BplistUID(__decode_multibyte_int(uid_bytes, signed=False))
     elif type_byte & 0xF0 == 0xA0: # Array  1010 nnnn
         if type_byte & 0x0F != 0x0F:
             # length in 4 lsb
@@ -217,3 +227,51 @@ def load(f):
         offset_table.append(__decode_multibyte_int(f.read(offset_int_size), False))
     
     return __decode_object(f, offset_table[top_level_object_index], collection_offset_size, offset_table)
+
+
+def NSKeyedArchiver_convert(o, object_table):
+    if isinstance(o, list):
+        return NsKeyedArchiverList(o, object_table)
+    elif isinstance(o, dict):
+        return NsKeyedArchiverDictionary(o, object_table)
+    elif isinstance(o, BplistUID):
+        return NSKeyedArchiver_convert(object_table[o.value], object_table)
+    else:
+        return o
+
+
+class NsKeyedArchiverDictionary(dict):
+    def __init__(self, original_dict, object_table):
+        super(NsKeyedArchiverDictionary, self).__init__(original_dict)
+        self.object_table = object_table
+
+    def __getitem__(self, index):
+        o = super(NsKeyedArchiverDictionary, self).__getitem__(index)
+        return NSKeyedArchiver_convert(o, self.object_table)
+
+class NsKeyedArchiverList(list):
+    def __init__(self, original_iterable, object_table):
+        super(NsKeyedArchiverList, self).__init__(original_iterable)
+        self.object_table = object_table
+
+    def __getitem__(self, index):
+        o = super(NsKeyedArchiverList, self).__getitem__(index)
+        return NSKeyedArchiver_convert(o, self.object_table)
+
+    def __iter__(self):
+        for o in super(NsKeyedArchiverList, self).__iter__():
+            yield NSKeyedArchiver_convert(o, self.object_table)
+        
+
+def deserialise_NsKeyedArchiver(obj):
+    # Check that this is an archiver and version we understand
+    if not isinstance(obj, dict):
+        raise TypeError("obj must be a dict")
+    if "$archiver" not in obj or obj["$archiver"] != "NSKeyedArchiver":
+        raise ValueError("obj does not contain an '$archiver' key or the '$archiver' is unrecognised")
+    if "$version" not in obj or obj["$version"] != 100000:
+        raise ValueError("obj does not contain a '$version' key or the '$version' is unrecognised")
+
+    object_table = obj["$objects"]
+    return NSKeyedArchiver_convert(obj["$top"]["root"], object_table)
+    
