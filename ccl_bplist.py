@@ -25,6 +25,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+import sys
 import os
 import struct
 import datetime
@@ -85,7 +86,11 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
     # Move to offset and read type
     #print("Decoding object at offset {0}".format(offset))
     f.seek(offset)
-    type_byte = f.read(1)[0]
+    # A little hack to keep the script portable between py2.x and py3k
+    if sys.version_info[0] < 3:
+        type_byte = ord(f.read(1)[0])
+    else:
+        type_byte = f.read(1)[0]
     #print("Type byte: {0}".format(hex(type_byte)))
     if type_byte == 0x00: # Null      0000 0000
         return None
@@ -112,7 +117,11 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
             # length in 4 lsb
             data_length = type_byte & 0x0F
         else:
-            int_type_byte = f.read(1)[0]
+            # A little hack to keep the script portable between py2.x and py3k
+            if sys.version_info[0] < 3:
+                int_type_byte = ord(f.read(1)[0])
+            else:
+                int_type_byte = f.read(1)[0]
             if int_type_byte & 0xF0 != 0x10:
                 raise BplistError("Long Data field definition not followed by int type at offset {0}".format(f.tell()))
             int_length = 2 ** (int_type_byte & 0x0F)
@@ -124,7 +133,11 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
             # length in 4 lsb
             ascii_length = type_byte & 0x0F
         else:
-            int_type_byte = f.read(1)[0]
+            # A little hack to keep the script portable between py2.x and py3k
+            if sys.version_info[0] < 3:
+                int_type_byte = ord(f.read(1)[0])
+            else:
+                int_type_byte = f.read(1)[0]
             if int_type_byte & 0xF0 != 0x10:
                 raise BplistError("Long ASCII field definition not followed by int type at offset {0}".format(f.tell()))
             int_length = 2 ** (int_type_byte & 0x0F)
@@ -136,7 +149,11 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
             # length in 4 lsb
             utf16_length = (type_byte & 0x0F) * 2 # Length is characters - 16bit width
         else:
-            int_type_byte = f.read(1)[0]
+            # A little hack to keep the script portable between py2.x and py3k
+            if sys.version_info[0] < 3:
+                int_type_byte = ord(f.read(1)[0])
+            else:
+                int_type_byte = f.read(1)[0]
             if int_type_byte & 0xF0 != 0x10:
                 raise BplistError("Long UTF-16 field definition not followed by int type at offset {0}".format(f.tell()))
             int_length = 2 ** (int_type_byte & 0x0F)
@@ -152,12 +169,16 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
             # length in 4 lsb
             array_count = type_byte & 0x0F
         else:
-            int_type_byte = f.read(1)[0]
+            # A little hack to keep the script portable between py2.x and py3k
+            if sys.version_info[0] < 3:
+                int_type_byte = ord(f.read(1)[0])
+            else:
+                int_type_byte = f.read(1)[0]
             if int_type_byte & 0xF0 != 0x10:
                 raise BplistError("Long Array field definition not followed by int type at offset {0}".format(f.tell()))
             int_length = 2 ** (int_type_byte & 0x0F)
             int_bytes = f.read(int_length)
-            array_count = __decode_multibyte_int(int_bytes)
+            array_count = __decode_multibyte_int(int_bytes, signed=False)
         array_refs = []
         for i in range(array_count):
             array_refs.append(__decode_multibyte_int(f.read(collection_offset_size), False))
@@ -167,12 +188,16 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
             # length in 4 lsb
             set_count = type_byte & 0x0F
         else:
-            int_type_byte = f.read(1)[0]
+            # A little hack to keep the script portable between py2.x and py3k
+            if sys.version_info[0] < 3:
+                int_type_byte = ord(f.read(1)[0])
+            else:
+                int_type_byte = f.read(1)[0]
             if int_type_byte & 0xF0 != 0x10:
                 raise BplistError("Long Set field definition not followed by int type at offset {0}".format(f.tell()))
             int_length = 2 ** (int_type_byte & 0x0F)
             int_bytes = f.read(int_length)
-            set_count = __decode_multibyte_int(int_bytes)
+            set_count = __decode_multibyte_int(int_bytes, signed=False)
         set_refs = []
         for i in range(set_count):
             set_refs.append(__decode_multibyte_int(f.read(collection_offset_size), False))
@@ -182,13 +207,17 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
             # length in 4 lsb
             dict_count = type_byte & 0x0F
         else:
-            int_type_byte = f.read(1)[0]
+            # A little hack to keep the script portable between py2.x and py3k
+            if sys.version_info[0] < 3:
+                int_type_byte = ord(f.read(1)[0])
+            else:
+                int_type_byte = f.read(1)[0]
             #print("Dictionary length int byte: {0}".format(hex(int_type_byte)))
             if int_type_byte & 0xF0 != 0x10:
                 raise BplistError("Long Dict field definition not followed by int type at offset {0}".format(f.tell()))
             int_length = 2 ** (int_type_byte & 0x0F)
             int_bytes = f.read(int_length)
-            dict_count = __decode_multibyte_int(int_bytes)
+            dict_count = __decode_multibyte_int(int_bytes, signed=False)
         key_refs = []
         #print("Dictionary count: {0}".format(dict_count))
         for i in range(dict_count):
