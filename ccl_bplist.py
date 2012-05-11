@@ -111,7 +111,7 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
     elif type_byte & 0xFF == 0x33: # Date   0011 0011
         date_bytes = f.read(8)
         date_value = __decode_float(date_bytes)
-        return datetime.datetime(2001,0,0) + datetime.timedelta(seconds = date_value)
+        return datetime.datetime(2001,1,1) + datetime.timedelta(seconds = date_value)
     elif type_byte & 0xF0 == 0x40: # Data   0100 nnnn
         if type_byte & 0x0F != 0x0F:
             # length in 4 lsb
