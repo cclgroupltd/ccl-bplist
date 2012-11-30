@@ -30,7 +30,7 @@ import os
 import struct
 import datetime
 
-__version__ = "0.9"
+__version__ = "0.9.1"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
 __contact__ = "Alex Caithness"
 
@@ -49,7 +49,7 @@ class BplistUID:
 
 def __decode_multibyte_int(b, signed=True):
     if len(b) == 1:
-        fmt = ">b"
+        fmt = ">B" # Always unsigned?
     elif len(b) == 2:
         fmt = ">h"
     elif len(b) == 3:
@@ -64,7 +64,7 @@ def __decode_multibyte_int(b, signed=True):
     else:
         raise BplistError("Cannot decode multibyte int of length {0}".format(len(b)))
     
-    if signed:
+    if signed and len(b) > 1:
         return struct.unpack(fmt.lower(), b)[0]
     else:
         return struct.unpack(fmt.upper(), b)[0]
