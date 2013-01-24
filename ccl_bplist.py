@@ -30,7 +30,7 @@ import os
 import struct
 import datetime
 
-__version__ = "0.9.1"
+__version__ = "0.10.0"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
 __contact__ = "Alex Caithness"
 
@@ -234,12 +234,13 @@ def __decode_object(f, offset, collection_offset_size, offset_table):
             dict_result[key] = val
         return dict_result
 
-"""
-Reads and converts a file-like object containing a binary property list.
-Takes a file-like object (must support reading and seeking) as an argument
-Returns a data structure representing the data in the property list
-"""
+
 def load(f):
+    """
+    Reads and converts a file-like object containing a binary property list.
+    Takes a file-like object (must support reading and seeking) as an argument
+    Returns a data structure representing the data in the property list
+    """
     # Check magic number
     if f.read(8) != b"bplist00":
         raise BplistError("Bad file header")
@@ -293,6 +294,10 @@ class NsKeyedArchiverList(list):
         
 
 def deserialise_NsKeyedArchiver(obj):
+    """Deserialises an NSKeyedArchiver bplist rebuilding the structure.
+       obj should usually be the top-level object returned by the load()
+       function."""
+    
     # Check that this is an archiver and version we understand
     if not isinstance(obj, dict):
         raise TypeError("obj must be a dict")
@@ -304,3 +309,54 @@ def deserialise_NsKeyedArchiver(obj):
     object_table = obj["$objects"]
     return NSKeyedArchiver_convert(obj["$top"]["root"], object_table)
     
+# NSMutableDictionary convenience functions and classes
+
+def is_nsmutabledictionary(obj):
+    if not isinstance(obj, dict):
+        print("not dict")
+        return False
+    if "$class" not in obj.keys():
+        print("no class")
+        return False
+    if obj["$class"].get("$classname") != "NSMutableDictionary":
+        print("wrong class")
+        return False
+    if "NS.keys" not in obj.keys():
+        print("no keys")
+        return False
+    if "NS.objects" not in obj.keys():
+        print("no objects")
+        return False
+
+    return True
+    
+def convert_NSMutableDictionary(obj):
+    """Converts a NSKeyedArchiver serialised NSMutableDictionary into
+       a straight dictionary (rather than two lists as it is serialised
+       as)"""
+    
+    # The dictionary is serialised as two lists (one for keys and one
+    # for values) which obviously removes all convenience afforded by
+    # dictionaries. This function converts this structure to an 
+    # actual dictionary so that values can be accessed by key.
+    
+    if not is_nsmutabledictionary(obj):
+        raise ValueError("obj does not have the correct structure for a NSMutableDictionary serialised to a NSKeyedArchiver")
+    keys = obj["NS.keys"]
+    vals = obj["NS.objects"]
+
+    # sense check the keys and values:
+    if not isinstance(keys, list):
+        raise TypeError("The 'NS.keys' value is an unexpected type (expected list; actual: {0}".format(type(keys)))
+    if not isinstance(vals, list):
+        raise TypeError("The 'NS.objects' value is an unexpected type (expected list; actual: {0}".format(type(vals)))
+    if len(keys) != len(vals):
+        raise ValueError("The length of the 'NS.keys' list ({0}) is not equal to that of the 'NS.objects ({1})".format(len(keys), len(vals)))
+
+    result = {}
+    for i,k in enumerate(keys):
+        if "k" in result:
+            raise ValueError("The 'NS.keys' list contains duplicate entries")
+        result[k] = vals[i]
+    
+    return result
