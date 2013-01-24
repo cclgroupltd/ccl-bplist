@@ -30,7 +30,7 @@ import os
 import struct
 import datetime
 
-__version__ = "0.10.0"
+__version__ = "0.10.1"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
 __contact__ = "Alex Caithness"
 
@@ -309,23 +309,22 @@ def deserialise_NsKeyedArchiver(obj):
     object_table = obj["$objects"]
     return NSKeyedArchiver_convert(obj["$top"]["root"], object_table)
     
-# NSMutableDictionary convenience functions and classes
-
+# NSMutableDictionary convenience functions
 def is_nsmutabledictionary(obj):
     if not isinstance(obj, dict):
-        print("not dict")
+        #print("not dict")
         return False
     if "$class" not in obj.keys():
-        print("no class")
+        #print("no class")
         return False
     if obj["$class"].get("$classname") != "NSMutableDictionary":
-        print("wrong class")
+        #print("wrong class")
         return False
     if "NS.keys" not in obj.keys():
-        print("no keys")
+        #print("no keys")
         return False
     if "NS.objects" not in obj.keys():
-        print("no objects")
+        #print("no objects")
         return False
 
     return True
