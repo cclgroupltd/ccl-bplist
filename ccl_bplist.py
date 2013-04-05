@@ -30,7 +30,7 @@ import os
 import struct
 import datetime
 
-__version__ = "0.10.1"
+__version__ = "0.11"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
 __contact__ = "Alex Caithness"
 
@@ -307,7 +307,10 @@ def deserialise_NsKeyedArchiver(obj):
         raise ValueError("obj does not contain a '$version' key or the '$version' is unrecognised")
 
     object_table = obj["$objects"]
-    return NSKeyedArchiver_convert(obj["$top"]["root"], object_table)
+    if "root" in obj["$top"]:
+        return NSKeyedArchiver_convert(obj["$top"]["root"], object_table)
+    else:
+        return NSKeyedArchiver_convert(obj["$top"], object_table)
     
 # NSMutableDictionary convenience functions
 def is_nsmutabledictionary(obj):
