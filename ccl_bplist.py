@@ -293,7 +293,7 @@ class NsKeyedArchiverList(list):
             yield NSKeyedArchiver_convert(o, self.object_table)
         
 
-def deserialise_NsKeyedArchiver(obj):
+def deserialise_NsKeyedArchiver(obj, parse_whole_structure=False):
     """Deserialises an NSKeyedArchiver bplist rebuilding the structure.
        obj should usually be the top-level object returned by the load()
        function."""
@@ -307,7 +307,7 @@ def deserialise_NsKeyedArchiver(obj):
         raise ValueError("obj does not contain a '$version' key or the '$version' is unrecognised")
 
     object_table = obj["$objects"]
-    if "root" in obj["$top"]:
+    if "root" in obj["$top"] and not parse_whole_structure:
         return NSKeyedArchiver_convert(obj["$top"]["root"], object_table)
     else:
         return NSKeyedArchiver_convert(obj["$top"], object_table)
@@ -320,7 +320,7 @@ def is_nsmutabledictionary(obj):
     if "$class" not in obj.keys():
         #print("no class")
         return False
-    if obj["$class"].get("$classname") != "NSMutableDictionary":
+    if obj["$class"].get("$classname") not in ("NSMutableDictionary", "NSDictionary"):
         #print("wrong class")
         return False
     if "NS.keys" not in obj.keys():
