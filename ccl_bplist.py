@@ -30,7 +30,7 @@ import os
 import struct
 import datetime
 
-__version__ = "0.11"
+__version__ = "0.12"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
 __contact__ = "Alex Caithness"
 
