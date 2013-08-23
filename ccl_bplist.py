@@ -30,9 +30,21 @@ import os
 import struct
 import datetime
 
-__version__ = "0.12"
+__version__ = "0.13"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
 __contact__ = "Alex Caithness"
+
+_object_converter = None
+def set_object_converter(function):
+    """Sets the object converter function to be used when retrieving objects from the bplist.
+    default is None (which will return objects in their raw form).
+    A built in converter (ccl_bplist.NSKeyedArchiver_common_objects_convertor) which is geared
+    toward dealling with common types in NSKeyedArchiver is available which can simplify code greatly
+    when dealling with these types of files."""
+    if not hasattr(function, "__call__"):
+        raise TypeError("function is not a function")
+    global _object_converter
+    _object_converter = function
 
 class BplistError(Exception):
     pass
@@ -259,15 +271,51 @@ def load(f):
     return __decode_object(f, offset_table[top_level_object_index], collection_offset_size, offset_table)
 
 
-def NSKeyedArchiver_convert(o, object_table):
-    if isinstance(o, list):
-        return NsKeyedArchiverList(o, object_table)
-    elif isinstance(o, dict):
-        return NsKeyedArchiverDictionary(o, object_table)
-    elif isinstance(o, BplistUID):
-        return NSKeyedArchiver_convert(object_table[o.value], object_table)
+def NSKeyedArchiver_common_objects_convertor(o):
+    """Built in converter function (suitable for submission to set_object_converter()) which automatically
+    converts the following common data-types found in NSKeyedArchiver:
+    NSDictionary/NSMutableDictionary;
+    NSArray/NSMutableArray;
+    NSString/NSMutableString
+    NSDate
+    $null strings"""
+    # Conversion: NSDictionary
+    if is_nsmutabledictionary(o):
+        return convert_NSMutableDictionary(o)
+    # Conversion: NSArray
+    elif is_nsarray(o):
+        return convert_NSArray(o)
+    # Conversion: NSString
+    elif is_nsstring(o):
+        return convert_NSString(o)
+    # Conversion: NSDate
+    elif is_nsdate(o):
+        return convert_NSDate(o)
+    # Conversion: "$null" string
+    elif isinstance(o, str) and o == "$null":
+        return None
+    # Fallback:
     else:
         return o
+
+def NSKeyedArchiver_convert(o, object_table):
+    if isinstance(o, list):
+        #return NsKeyedArchiverList(o, object_table)
+        result = NsKeyedArchiverList(o, object_table)
+    elif isinstance(o, dict):
+        #return NsKeyedArchiverDictionary(o, object_table)
+        result = NsKeyedArchiverDictionary(o, object_table)
+    elif isinstance(o, BplistUID):
+        #return NSKeyedArchiver_convert(object_table[o.value], object_table)
+        result = NSKeyedArchiver_convert(object_table[o.value], object_table)
+    else:
+        #return o
+        result = o
+
+    if _object_converter:
+        return _object_converter(result)
+    else:
+        return result
 
 
 class NsKeyedArchiverDictionary(dict):
@@ -315,19 +363,14 @@ def deserialise_NsKeyedArchiver(obj, parse_whole_structure=False):
 # NSMutableDictionary convenience functions
 def is_nsmutabledictionary(obj):
     if not isinstance(obj, dict):
-        #print("not dict")
         return False
     if "$class" not in obj.keys():
-        #print("no class")
         return False
     if obj["$class"].get("$classname") not in ("NSMutableDictionary", "NSDictionary"):
-        #print("wrong class")
         return False
     if "NS.keys" not in obj.keys():
-        #print("no keys")
         return False
     if "NS.objects" not in obj.keys():
-        #print("no objects")
         return False
 
     return True
@@ -343,7 +386,7 @@ def convert_NSMutableDictionary(obj):
     # actual dictionary so that values can be accessed by key.
     
     if not is_nsmutabledictionary(obj):
-        raise ValueError("obj does not have the correct structure for a NSMutableDictionary serialised to a NSKeyedArchiver")
+        raise ValueError("obj does not have the correct structure for a NSDictionary/NSMutableDictionary serialised to a NSKeyedArchiver")
     keys = obj["NS.keys"]
     vals = obj["NS.objects"]
 
@@ -357,8 +400,64 @@ def convert_NSMutableDictionary(obj):
 
     result = {}
     for i,k in enumerate(keys):
-        if "k" in result:
+        if k in result:
             raise ValueError("The 'NS.keys' list contains duplicate entries")
         result[k] = vals[i]
     
     return result
+
+# NSArray convenience functions
+def is_nsarray(obj):
+    if not isinstance(obj, dict):
+        return False
+    if "$class" not in obj.keys():
+        return False
+    if obj["$class"].get("$classname") not in ("NSArray", "NSMutableArray"):
+        return False
+    if "NS.objects" not in obj.keys():
+        return False
+
+    return True
+
+def convert_NSArray(obj):
+    if not is_nsarray(obj):
+        raise ValueError("obj does not have the correct structure for a NSArray/NSMutableArray serialised to a NSKeyedArchiver")
+
+    return obj["NS.objects"]
+
+# NSString convenience functions
+def is_nsstring(obj):
+    if not isinstance(obj, dict):
+        return False
+    if "$class" not in obj.keys():
+        return False
+    if obj["$class"].get("$classname") not in ("NSString", "NSMutableString"):
+        return False
+    if "NS.string" not in obj.keys():
+        return False
+    return True
+
+def convert_NSString(obj):
+    if not is_nsstring(obj):
+        raise ValueError("obj does not have the correct structure for a NSString/NSMutableString serialised to a NSKeyedArchiver")
+
+    return obj["NS.string"]
+
+# NSDate convenience functions
+def is_nsdate(obj):
+    if not isinstance(obj, dict):
+        return False
+    if "$class" not in obj.keys():
+        return False
+    if obj["$class"].get("$classname") not in ("NSDate"):
+        return False
+    if "NS.time" not in obj.keys():
+        return False
+
+    return True
+
+def convert_NSDate(obj):
+    if not is_nsdate(obj):
+        raise ValueError("obj does not have the correct structure for a NSDate serialised to a NSKeyedArchiver")
+
+    return datetime.datetime(2001, 1, 1) + datetime.timedelta(seconds=obj["NS.time"])
