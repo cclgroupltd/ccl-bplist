@@ -1,5 +1,5 @@
 """
-Copyright (c) 2012, CCL Forensics
+Copyright (c) 2012-2014, CCL Forensics
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@ import os
 import struct
 import datetime
 
-__version__ = "0.13"
+__version__ = "0.14"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
 __contact__ = "Alex Caithness"
 
@@ -326,6 +326,9 @@ class NsKeyedArchiverDictionary(dict):
     def __getitem__(self, index):
         o = super(NsKeyedArchiverDictionary, self).__getitem__(index)
         return NSKeyedArchiver_convert(o, self.object_table)
+
+    def get(self, key, default=None):
+        return self[key] if key in self else default
 
 class NsKeyedArchiverList(list):
     def __init__(self, original_iterable, object_table):
