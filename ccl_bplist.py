@@ -30,7 +30,7 @@ import os
 import struct
 import datetime
 
-__version__ = "0.15"
+__version__ = "0.16"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
 __contact__ = "Alex Caithness"
 
@@ -280,6 +280,7 @@ def NSKeyedArchiver_common_objects_convertor(o):
     converts the following common data-types found in NSKeyedArchiver:
     NSDictionary/NSMutableDictionary;
     NSArray/NSMutableArray;
+    NSSet/NSMutableSet
     NSString/NSMutableString
     NSDate
     $null strings"""
@@ -289,6 +290,8 @@ def NSKeyedArchiver_common_objects_convertor(o):
     # Conversion: NSArray
     elif is_nsarray(o):
         return convert_NSArray(o)
+    elif is_isnsset(o):
+        return convert_NSSet(o)
     # Conversion: NSString
     elif is_nsstring(o):
         return convert_NSString(o)
@@ -431,6 +434,25 @@ def convert_NSArray(obj):
         raise ValueError("obj does not have the correct structure for a NSArray/NSMutableArray serialised to a NSKeyedArchiver")
 
     return obj["NS.objects"]
+
+# NSSet convenience functions
+def is_isnsset(obj):
+    if not isinstance(obj, dict):
+        return False
+    if "$class" not in obj.keys():
+        return False
+    if obj["$class"].get("$classname") not in ("NSSet", "NSMutableSet"):
+        return False
+    if "NS.objects" not in obj.keys():
+        return False
+
+    return True
+
+def convert_NSSet(obj):
+    if not is_isnsset(obj):
+        raise ValueError("obj does not have the correct structure for a NSSet/NSMutableSet serialised to a NSKeyedArchiver")
+
+    return set(obj["NS.objects"])
 
 # NSString convenience functions
 def is_nsstring(obj):
