@@ -142,10 +142,3 @@ and the way that NSKeyedArchiver serialises Null as a string containing "$null":
 None
 
 ```
-
-----
-
-# Other projects
-  *  http://code.google.com/p/ccl-asl/ - ccl_asl: Python module and command line interface for offline processing of iOS and OSX ASL (Apple System Log) files
-  *  http://code.google.com/p/ccl-ipd/ - ccl_ipd: Python module for parsing BlackBerry IPD backup files
-  *  http://code.google.com/p/ccl-ssns/ - ccl_ssns: Python module and command line interface for parsing Chrome session files (Last Tabs, Current Session, etc.)
