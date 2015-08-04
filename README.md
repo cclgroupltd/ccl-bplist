@@ -1,9 +1,5 @@
 *ccl_bplist is a small Python module for dealing with binary property lists (bplists). It also contains special helper functionality to simplify the processing of NSKeyedArchiver structures often found in binary property lists.*
 
-_To download the scripts go to the "Source" tab and click "Browse"_
-
-_A quick-start guide can be found below_
-
 It converts the binary property list file contents into a native Python object.
 
 Property List Type | Returned Python Type
