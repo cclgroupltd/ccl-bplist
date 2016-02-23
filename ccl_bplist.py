@@ -1,5 +1,5 @@
 """
-Copyright (c) 2012-2014, CCL Forensics
+Copyright (c) 2012-2016, CCL Forensics
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,7 @@ import os
 import struct
 import datetime
 
-__version__ = "0.16"
+__version__ = "0.21"
 __description__ = "Converts Apple binary PList files into a native Python data structure"
 __contact__ = "Alex Caithness"
 
@@ -73,6 +73,13 @@ def __decode_multibyte_int(b, signed=True):
         fmt = ">i"
     elif len(b) == 8:
         fmt = ">q"
+    elif len(b) == 16:
+        # special case for BigIntegers
+        high, low = struct.unpack(">QQ", b)
+        result = (high << 64) | low
+        if high & 0x8000000000000000 and signed:
+            result -= 0x100000000000000000000000000000000
+        return result
     else:
         raise BplistError("Cannot decode multibyte int of length {0}".format(len(b)))
     
@@ -337,6 +344,14 @@ class NsKeyedArchiverDictionary(dict):
     def get(self, key, default=None):
         return self[key] if key in self else default
 
+    def values(self):
+        for k in self:
+            yield self[k]
+
+    def items(self):
+        for k in self:
+            yield k, self[k]
+
 class NsKeyedArchiverList(list):
     def __init__(self, original_iterable, object_table):
         super(NsKeyedArchiverList, self).__init__(original_iterable)
@@ -359,7 +374,7 @@ def deserialise_NsKeyedArchiver(obj, parse_whole_structure=False):
     # Check that this is an archiver and version we understand
     if not isinstance(obj, dict):
         raise TypeError("obj must be a dict")
-    if "$archiver" not in obj or obj["$archiver"] != "NSKeyedArchiver":
+    if "$archiver" not in obj or obj["$archiver"] not in ("NSKeyedArchiver", "NRKeyedArchiver"):
         raise ValueError("obj does not contain an '$archiver' key or the '$archiver' is unrecognised")
     if "$version" not in obj or obj["$version"] != 100000:
         raise ValueError("obj does not contain a '$version' key or the '$version' is unrecognised")
@@ -452,7 +467,7 @@ def convert_NSSet(obj):
     if not is_isnsset(obj):
         raise ValueError("obj does not have the correct structure for a NSSet/NSMutableSet serialised to a NSKeyedArchiver")
 
-    return set(obj["NS.objects"])
+    return list(obj["NS.objects"])
 
 # NSString convenience functions
 def is_nsstring(obj):
